@@ -1,0 +1,54 @@
+name: Build JARVIS APK
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download repository
+        uses: actions/checkout@v4
+
+      - name: Find and extract ZIP
+        run: |
+          ZIP_FILE=$(find . -maxdepth 1 -name "*.zip" | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ZIP file nahi mili"
+            exit 1
+          fi
+          mkdir project
+          unzip "$ZIP_FILE" -d project
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Build APK
+        run: |
+          # Automatically detect karega ki build.gradle ya gradlew kahan hai
+          PROJECT_DIR=$(find project -name "settings.gradle" -o -name "build.gradle" | head -n 1 | xargs dirname)
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "Gradle project files nahi mili!"
+            exit 1
+          fi
+          
+          echo "Found project directory: $PROJECT_DIR"
+          cd "$PROJECT_DIR"
+          
+          if [ -f "gradlew" ]; then
+            chmod +x gradlew
+            ./gradlew assembleDebug --no-daemon
+          else
+            gradle --no-daemon assembleDebug
+          fi
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SatyamSirJARVIS-APK
+          path: project/**/build/outputs/apk/debug/app-debug.apk
+          
